@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- to run this app:  python3 -m http.server 8000 -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>ThoughtSpot Group Access Viewer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; padding:20px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif; background:#f5f5f5; }
+    .container { max-width:1400px; margin:0 auto; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.1); padding:30px; }
+    h1 { margin:0 0 10px; color:#333; font-size:32px; }
+    .subtitle { color:#666; margin-bottom:18px; }
+
+    .notice{
+      background:#e8f5e9; border:1px solid #4caf50; border-radius:6px;
+      padding:12px; margin:0 0 18px; color:#2e7d32; line-height:1.45;
+    }
+
+    .form-section { background:#f9f9f9; border:1px solid #e0e0e0; border-radius:8px; padding:24px; margin-bottom:18px; }
+    .form-group { margin-bottom:16px; }
+    label { display:block; margin-bottom:8px; font-weight:700; color:#333; }
+    input[type="text"], input[type="password"], select {
+      width:100%; padding:12px; border:1px solid #ddd; border-radius:6px; font-size:14px; background:#fff;
+    }
+    input:focus, select:focus { outline:none; border-color:#1976d2; box-shadow:0 0 0 3px rgba(25,118,210,.1); }
+    .help-text{ font-size:12px; color:#666; margin-top:6px; }
+    .row-inline{ display:flex; gap:10px; align-items:center; }
+    .row-inline > * { flex: 1; }
+    .row-inline .inline-btn { flex: 0 0 auto; }
+
+    .button { background:#1976d2; color:#fff; border:none; padding:12px 18px; border-radius:6px; font-size:15px; font-weight:800; cursor:pointer; }
+    .button:hover { background:#1565c0; }
+    .button:disabled { background:#ccc; cursor:not-allowed; }
+    .button-secondary { background:#666; margin-left:10px; }
+    .button-secondary:hover { background:#555; }
+    .button-tertiary { background:#0b7a6a; }
+    .button-tertiary:hover { background:#096b5d; }
+
+    .results-section { margin-top:10px; }
+
+    .loading { text-align:center; padding:50px 20px; color:#666; }
+    .loading-spinner { border:3px solid #f3f3f3; border-top:3px solid #1976d2; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:0 auto 16px; }
+    @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+    .error { background:#ffebee; border:1px solid #ffcdd2; border-radius:8px; padding:14px; color:#d32f2f; margin:14px 0; white-space:pre-wrap; }
+    .empty-state { text-align:center; padding:40px 18px; color:#999; font-style:italic; border:1px dashed #ddd; border-radius:10px; }
+
+    .group-section { margin-bottom:28px; border:1px solid #e0e0e0; border-radius:10px; overflow:hidden; }
+    .group-header { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; padding:18px 20px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; }
+    .group-header-content { display:flex; align-items:center; gap:12px; }
+    .group-toggle-icon { transition:transform .25s ease; }
+    .group-section.collapsed .group-toggle-icon { transform:rotate(-90deg); }
+    .group-name { font-size:18px; font-weight:900; }
+    .group-status { font-size:13px; opacity:.95; }
+    .group-content { padding:18px 20px; overflow:hidden; transition:max-height .25s ease, opacity .25s ease; }
+    .group-section.collapsed .group-content { max-height:0; padding:0 20px; opacity:0; }
+
+    .info-section { margin-bottom:18px; padding:14px; background:#f9f9f9; border-radius:10px; border-left:4px solid #1976d2; }
+    .info-section h3 { margin:0 0 10px; font-size:15px; color:#333; }
+    .info-item { margin:8px 0; font-size:14px; color:#666; }
+    .info-item strong { color:#333; }
+    .users-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .user-badge { background:#e3f2fd; color:#1976d2; padding:6px 12px; border-radius:999px; font-size:13px; font-weight:800; }
+
+    .category-section { margin-bottom:20px; }
+    .category-title { font-size:16px; font-weight:900; color:#333; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid #eee; display:flex; gap:8px; align-items:center; }
+    .items-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:12px; }
+    .item-card-link { text-decoration:none; color:inherit; display:block; }
+    .item-card { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:14px; transition:all .15s ease; }
+    .item-card-link:hover .item-card { transform:translateY(-2px); box-shadow:0 6px 14px rgba(0,0,0,.10); border-color:#1976d2; }
+    .item-title { font-size:15px; font-weight:900; margin-bottom:8px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .item-meta { font-size:13px; color:#666; line-height:1.35; }
+    .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; }
+
+    .pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; border:1px solid #ddd; }
+    .pill-green { background:#e8f5e9; color:#2e7d32; border-color:#a5d6a7; }
+    .pill-gray { background:#f3f3f3; color:#444; border-color:#ddd; }
+    .pill-amber { background:#fff8e1; color:#8d6e00; border-color:#ffe082; }
+    .pill-red { background:#ffebee; color:#b71c1c; border-color:#ffcdd2; }
+    .pill-blue { background:#e3f2fd; color:#1565c0; border-color:#90caf9; }
+
+    .panel { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:14px; margin-top:18px; }
+    .panel h2 { margin:0 0 6px; font-size:18px; color:#222; }
+    .panel p { margin:0 0 12px; color:#666; font-size:13px; line-height:1.4; }
+
+    .kpi-bar { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-bottom:16px; }
+    .kpi-card { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:14px; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+    .kpi-label { font-size:12px; color:#666; font-weight:800; letter-spacing:.02em; text-transform:uppercase; }
+    .kpi-value { margin-top:6px; font-size:28px; font-weight:900; color:#222; line-height:1.1; }
+    .kpi-sub { margin-top:6px; font-size:12px; color:#777; }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>ThoughtSpot Group Access Viewer</h1>
+    <p class="subtitle">Groups + Org-wide share/discoverability report</p>
+
+    <div class="notice">
+      <strong>Clarification:</strong> REST can reliably list <strong>saved</strong> Liveboards/Answers/Models.
+      “Unsaved session answers” are not a stable, reportable object type via REST.
+      <br><br>
+      <strong>Compatibility:</strong> This app auto-detects whether your cluster supports Orgs.
+      If Orgs are not supported, it runs in <strong>single-org mode</strong> (no org selector, no org scoping).
+      <br><br>
+      <strong>Performance:</strong> Org-wide <code>metadata/search</code> is fetched in pages (to avoid 504 gateway timeouts).
+      <br><br>
+      <strong>NOTE:</strong> This app does not report on system objects.
+    </div>
+
+    <div class="form-section">
+      <div class="form-group">
+        <label for="thoughtspot-host">ThoughtSpot Host URL</label>
+        <input type="text" id="thoughtspot-host" value="https://embed-1-do-not-delete.thoughtspotstaging.cloud" />
+      </div>
+
+      <div class="form-group">
+        <label for="admin-username">Admin Username</label>
+        <input type="text" id="admin-username" placeholder="Enter admin username" />
+      </div>
+
+      <div class="form-group">
+        <label for="admin-password">Secret Key</label>
+        <input type="password" id="admin-password" placeholder="Enter secret key" />
+      </div>
+
+      <div class="form-group" id="org-form-group">
+        <label for="org-select">Organization</label>
+        <div class="row-inline" id="org-row">
+          <select id="org-select">
+            <option value="">Current org context</option>
+          </select>
+          <button class="button button-tertiary inline-btn" id="load-orgs-button" onclick="loadOrgs()">Load Orgs</button>
+        </div>
+        <div class="help-text" id="org-help">
+          Populated from <code>POST /api/rest/2.0/orgs/search</code>. UI shows org name, API calls use org <strong>id</strong> (as <code>org_id</code>).
+        </div>
+        <div class="help-text" id="orgs-status"></div>
+      </div>
+
+      <button class="button" id="fetch-button" onclick="fetchEverything()">Run Report</button>
+      <button class="button button-secondary" onclick="clearResults()">Clear</button>
+    </div>
+
+    <div class="results-section" id="results-section" style="display:none;"></div>
+  </div>
+
+<script>
+  const CONFIG = {
+    thoughtSpotHost: '',
+    adminUsername: '',
+    adminPassword: '',
+    orgs: []
+  };
+
+  const STATE = {
+    token: '',
+    allAnswers: [],
+    allLiveboards: [],
+    allModels: [],
+    sharedAnswerIds: new Set(),     // org-wide explicit share
+    sharedLiveboardIds: new Set(),  // org-wide explicit share
+    explicitShareCache: new Map()   // metadataId -> true/false (used for group answer pills)
+  };
+
+  const CAP = {
+    orgsSupported: true
+  };
+
+  // ---------- Helpers ----------
+  function hostBase(h){ return (h||'').replace(/\/$/, ''); }
+  function extractList(data){
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.headers)) return data.headers;
+    if (data && Array.isArray(data.metadata)) return data.metadata;
+    return [];
+  }
+  function normalize(item){
+    if (!item || typeof item !== 'object') return item;
+    item.id = item.id || item.metadata_id || item.identifier || item.guid;
+    item.identifier = item.identifier || item.id;
+    item.name = item.name || item.metadata_name || item.display_name || item.title;
+    item.type = item.type || item.metadata_type || item.object_type || '';
+    return item;
+  }
+  function fmtDate(ms){ try { return ms ? new Date(ms).toLocaleString() : '—'; } catch { return '—'; } }
+
+  function constructThoughtSpotUrl(host, metadataType, itemId) {
+    const base = hostBase(host);
+    if (!base || !itemId) return '#';
+    const t = (metadataType || '').toUpperCase();
+    if (t === 'LIVEBOARD') return `${base}/#/pinboard/${itemId}`;
+    if (t === 'ANSWER') return `${base}/#/answer/${itemId}`;
+    if (t === 'LOGICAL_TABLE') return `${base}/#/worksheet/${itemId}`;
+    return '#';
+  }
+
+  function getSelectedOrgId() {
+    const v = document.getElementById('org-select').value;
+    return v ? String(v) : '';
+  }
+
+  function scopeToOrg(items, orgId) {
+    if (!orgId) return items;
+    const orgNum = Number(orgId);
+    if (Number.isNaN(orgNum)) return items;
+
+    return (items || []).filter(x => {
+      const hdr = x.metadata_header || {};
+      const ownerOrgId = hdr.ownerOrgId;
+      const orgIds = Array.isArray(hdr.orgIds) ? hdr.orgIds : [];
+      return ownerOrgId === orgNum || orgIds.includes(orgNum);
+    });
+  }
+
+  // ---------- fetch with timeout + retry (fix for 504/slow endpoints) ----------
+  async function fetchWithRetry(url, options, { timeoutMs = 60000, retries = 2 } = {}) {
+    let attempt = 0;
+    let lastErr = null;
+
+    while (attempt <= retries) {
+      attempt++;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const resp = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timer);
+
+        // Retry on gateway/transient
+        if ([502, 503, 504].includes(resp.status)) {
+          const txt = await resp.text().catch(() => '');
+          lastErr = new Error(`HTTP ${resp.status} from ${url}. ${txt}`);
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+          continue;
+        }
+
+        if (!resp.ok) {
+          const t = await resp.text().catch(() => '');
+          throw new Error(`Request failed: ${resp.status} ${resp.statusText}. ${t}`);
+        }
+
+        return await resp.json();
+      } catch (e) {
+        clearTimeout(timer);
+        lastErr = e;
+
+        const isAbort = e && e.name === 'AbortError';
+        if (isAbort || attempt <= retries) {
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+          continue;
+        }
+        throw e;
+      }
+    }
+
+    throw lastErr || new Error('fetchWithRetry failed');
+  }
+
+  // ---------- KPI ----------
+  function createKpiBar({ totalLiveboards, totalAnswers, totalModels }) {
+    const bar = document.createElement('div');
+    bar.className = 'kpi-bar';
+
+    const mk = (label, value, sub = '') => {
+      const card = document.createElement('div');
+      card.className = 'kpi-card';
+      card.innerHTML = `
+        <div class="kpi-label">${label}</div>
+        <div class="kpi-value">${Number(value || 0).toLocaleString()}</div>
+        ${sub ? `<div class="kpi-sub">${sub}</div>` : ''}
+      `;
+      return card;
+    };
+
+    bar.appendChild(mk('Total Liveboards', totalLiveboards, 'Org-wide (saved)'));
+    bar.appendChild(mk('Total Answers', totalAnswers, 'Org-wide (saved)'));
+    bar.appendChild(mk('Total Models', totalModels, 'Org-wide (LOGICAL_TABLE)'));
+    return bar;
+  }
+
+  // ---------- Orgs capability + UI ----------
+  function setOrgUiEnabled(enabled) {
+    const group = document.getElementById('org-form-group');
+    const row = document.getElementById('org-row');
+    const help = document.getElementById('org-help');
+    const status = document.getElementById('orgs-status');
+
+    if (!enabled) {
+      row.style.display = 'none';
+      help.style.display = 'none';
+      status.textContent = 'Orgs not supported on this cluster (single-org mode).';
+      status.style.color = '#444';
+      group.style.opacity = '0.95';
+    } else {
+      row.style.display = '';
+      help.style.display = '';
+      status.textContent = '';
+      status.style.color = '';
+      group.style.opacity = '1';
+    }
+  }
+
+  // Bulletproof org support detection:
+  async function detectOrgsSupport(authToken, host) {
+    const url = `${hostBase(host)}/api/rest/2.0/orgs/search`;
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-By': 'ThoughtSpot'
+        },
+        body: JSON.stringify({})
+      });
+
+      if (resp.ok) return true;
+
+      const bodyText = (await resp.text().catch(() => '')) || '';
+
+      if (bodyText.toLowerCase().includes('org feature is disabled')) return false;
+      if ([404, 501].includes(resp.status)) return false;
+
+      if (resp.status === 403) return true;
+
+      console.warn(`orgs/search probe unexpected status ${resp.status}: ${bodyText}`);
+      return true;
+    } catch (e) {
+      console.warn('orgs/search probe failed; assuming orgs unsupported:', e);
+      return false;
+    }
+  }
+
+  async function fetchOrgsList(authToken, host) {
+    const url = `${hostBase(host)}/api/rest/2.0/orgs/search`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-By': 'ThoughtSpot'
+      },
+      body: JSON.stringify({})
+    });
+
+    if (!resp.ok) {
+      const bodyText = (await resp.text().catch(() => '')) || '';
+      if (bodyText.toLowerCase().includes('org feature is disabled')) {
+        return { orgsSupported: false, orgs: [] };
+      }
+      throw new Error(`Orgs search failed: ${resp.status} ${resp.statusText}. ${bodyText}`);
+    }
+
+    const data = await resp.json();
+    const orgs = Array.isArray(data) ? data : (data.headers || []);
+    return { orgsSupported: true, orgs };
+  }
+
+  function populateOrgSelect(orgs) {
+    const select = document.getElementById('org-select');
+    const current = select.value;
+
+    select.innerHTML = '<option value="">Current org context</option>';
+
+    const sorted = [...orgs].sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+    sorted.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = String(o.id);                  // numeric org id (for org_id)
+      opt.textContent = o.name || `Org ${o.id}`; // human readable
+      select.appendChild(opt);
+    });
+
+    if ([...select.options].some(o => o.value === current)) select.value = current;
+  }
+
+  async function loadOrgs() {
+    const host = document.getElementById('thoughtspot-host').value.trim();
+    const user = document.getElementById('admin-username').value.trim();
+    const pass = document.getElementById('admin-password').value.trim();
+    if (!host || !user || !pass) { alert('Fill host/username/password first.'); return; }
+
+    const btn = document.getElementById('load-orgs-button');
+    const status = document.getElementById('orgs-status');
+    btn.disabled = true; btn.textContent = 'Loading...';
+    status.textContent = 'Checking org support...';
+
+    try {
+      const bootstrapToken = await getAuthToken(user, pass, host, '');
+
+      CAP.orgsSupported = await detectOrgsSupport(bootstrapToken, host);
+      setOrgUiEnabled(CAP.orgsSupported);
+
+      if (!CAP.orgsSupported) return;
+
+      status.textContent = 'Fetching orgs...';
+      const result = await fetchOrgsList(bootstrapToken, host);
+
+      if (result.orgsSupported === false) {
+        CAP.orgsSupported = false;
+        setOrgUiEnabled(false);
+        return;
+      }
+
+      CAP.orgsSupported = true;
+      setOrgUiEnabled(true);
+
+      CONFIG.orgs = result.orgs;
+      populateOrgSelect(result.orgs);
+      status.textContent = `Loaded ${result.orgs.length} org(s).`;
+    } catch (e) {
+      console.error(e);
+      status.textContent = `Failed to load orgs: ${e.message}`;
+      alert(e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Load Orgs';
+    }
+  }
+
+  // ---------- Auth (org_id support) ----------
+  async function getAuthToken(username, password, host, orgId = '') {
+    const url = `${hostBase(host)}/api/rest/2.0/auth/token/custom`;
+    const body = { username, secret_key: password, validity_time_in_sec: 3600, persist_option: 'NONE' };
+
+    // Only attach org_identifier if cluster supports orgs and user selected one
+    if (CAP.orgsSupported && orgId) {
+      body.org_identifier = orgId;
+    }
+
+    const resp = await fetch(url, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!resp.ok) {
+      const t = await resp.text();
+      if (resp.status === 401) throw new Error('Authentication failed. Check username/password.');
+      throw new Error(`Failed to get auth token: ${resp.status} ${resp.statusText}. ${t}`);
+    }
+
+    const data = await resp.json();
+    return data.token;
+  }
+
+  // ---------- Groups ----------
+  async function fetchGroupsList(authToken, host, orgId) {
+    const url = `${hostBase(host)}/api/rest/2.0/groups/search`;
+    const body = { include_users: true, record_size: 1000 };
+
+    // Only include org_identifiers if orgs are supported and an org is selected
+    if (CAP.orgsSupported && orgId) body.org_identifiers = [orgId];
+
+    const resp = await fetch(url, {
+      method:'POST',
+      headers:{
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-Requested-By':'ThoughtSpot'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error(`Groups search failed: ${resp.status} ${resp.statusText}. ${t}`);
+    }
+    const data = await resp.json();
+    if (Array.isArray(data)) return data;
+    if (data.headers && Array.isArray(data.headers)) return data.headers;
+    return [];
+  }
+
+  async function fetchGroupMetadata(groupId, authToken, host) {
+    const url = `${hostBase(host)}/api/rest/2.0/security/principals/fetch-permissions`;
+    const body = { principals:[{ identifier: groupId, type:'USER_GROUP' }], record_size: 1000 };
+
+    const resp = await fetch(url, {
+      method:'POST',
+      headers:{
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-Requested-By':'ThoughtSpot'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text().catch(()=> '');
+      throw new Error(`fetch-permissions failed for group ${groupId}: ${resp.status} ${resp.statusText}. ${txt}`);
+    }
+
+    const data = await resp.json();
+    return processPermissionsResponse(data);
+  }
+
+  function processPermissionsResponse(data) {
+    const out = [];
+    const seen = new Set();
+    const details = data.principal_permission_details;
+    if (!Array.isArray(details)) return { headers: [] };
+
+    details.forEach(d => {
+      const infos = d.metadata_permission_info || [];
+      infos.forEach(info => {
+        const t = (info.metadata_type || '').toUpperCase();
+        if (!(t === 'LIVEBOARD' || t === 'ANSWER' || t === 'LOGICAL_TABLE')) return;
+
+        const perms = info.metadata_permissions || [];
+        perms.forEach(p => {
+          const id = p.metadata_id;
+          if (!id || seen.has(id)) return;
+          seen.add(id);
+
+          out.push(normalize({
+            id, identifier:id,
+            name: p.metadata_name,
+            type: t,
+            description: p.metadata_owner?.name || '',
+            owner: p.metadata_owner
+          }));
+        });
+      });
+    });
+
+    return { headers: out };
+  }
+
+  function organizeMetadata(data) {
+    const items = extractList(data).map(normalize);
+    const res = { liveboards: [], answers: [], models: [] };
+    items.forEach(it => {
+      const t = (it.type || '').toUpperCase();
+      if (t === 'LIVEBOARD') res.liveboards.push(it);
+      else if (t === 'ANSWER') res.answers.push(it);
+      else if (t === 'LOGICAL_TABLE') res.models.push(it);
+    });
+    return res;
+  }
+
+  // ---------- Org-wide metadata/search (paged + lighter to avoid 504) ----------
+  async function fetchAllMetadataPaged(authToken, host, type) {
+    const url = `${hostBase(host)}/api/rest/2.0/metadata/search`;
+    const pageSize = 500;     // reduce if still timing out (e.g., 100)
+    let offset = 0;
+    let all = [];
+
+    while (true) {
+      const body = {
+        metadata: [{ type, name_pattern: '%' }],
+        record_size: pageSize,
+        offset: offset,
+        include_headers: true,
+        include_details: false  // huge win for performance/504 avoidance
+      };
+
+      const data = await fetchWithRetry(url, {
+        method:'POST',
+        headers:{
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type':'application/json',
+          'Accept':'application/json',
+          'X-Requested-By':'ThoughtSpot'
+        },
+        body: JSON.stringify(body)
+      }, { timeoutMs: 90000, retries: 3 });
+
+      const items = extractList(data).map(normalize);
+      all = all.concat(items);
+
+      if (items.length < pageSize) break;
+      offset += pageSize;
+    }
+
+    return all;
+  }
+
+  async function fetchAllAnswers(authToken, host) {
+    return fetchAllMetadataPaged(authToken, host, 'ANSWER');
+  }
+
+  async function fetchAllLiveboards(authToken, host) {
+    return fetchAllMetadataPaged(authToken, host, 'LIVEBOARD');
+  }
+
+  async function fetchAllModels(authToken, host) {
+    return fetchAllMetadataPaged(authToken, host, 'LOGICAL_TABLE');
+  }
+
+  // ---------- Explicit share detection (DEFINED shares) ----------
+  async function fetchExplicitSharedIdsForType(authToken, host, items, metadataType) {
+    const url = `${hostBase(host)}/api/rest/2.0/security/metadata/fetch-permissions`;
+    const shared = new Set();
+    const batchSize = 50;
+
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const metadata = batch
+        .map(x => x.id ? ({ identifier:x.id, type: metadataType }) : null)
+        .filter(Boolean);
+
+      if (!metadata.length) continue;
+
+      const resp = await fetchWithRetry(url, {
+        method:'POST',
+        headers:{
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type':'application/json',
+          'Accept':'application/json',
+          'X-Requested-By':'ThoughtSpot'
+        },
+        body: JSON.stringify({ metadata, permission_type: 'DEFINED' })
+      }, { timeoutMs: 90000, retries: 2 });
+
+      const perms = resp.metadata_permissions || [];
+
+      perms.forEach(perm => {
+        const objId = perm.metadata?.identifier || perm.metadata_id;
+        if (!objId) return;
+
+        const pps = perm.principal_permissions || [];
+        let hasNonOwnerShare = false;
+
+        for (const pp of pps) {
+          if (!pp) continue;
+          if (pp.is_owner === true) continue;
+
+          const pt = (pp.principal?.type || '').toUpperCase();
+          if (pt === 'USER' || pt === 'USER_GROUP') { hasNonOwnerShare = true; break; }
+        }
+
+        STATE.explicitShareCache.set(objId, hasNonOwnerShare);
+        if (hasNonOwnerShare) shared.add(objId);
+      });
+    }
+
+    return shared;
+  }
+
+  async function ensureExplicitShareStatus(authToken, host, answerIds) {
+    const unknown = [];
+    answerIds.forEach(id => {
+      if (!id) return;
+      if (!STATE.explicitShareCache.has(id)) unknown.push(id);
+    });
+    if (unknown.length === 0) return;
+
+    const url = `${hostBase(host)}/api/rest/2.0/security/metadata/fetch-permissions`;
+    const batchSize = 50;
+
+    for (let i=0;i<unknown.length;i+=batchSize) {
+      const batchIds = unknown.slice(i, i+batchSize);
+      const metadata = batchIds.map(id => ({ identifier: id, type: 'ANSWER' }));
+
+      let data;
+      try {
+        data = await fetchWithRetry(url, {
+          method:'POST',
+          headers:{
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type':'application/json',
+            'Accept':'application/json',
+            'X-Requested-By':'ThoughtSpot'
+          },
+          body: JSON.stringify({ metadata, permission_type:'DEFINED' })
+        }, { timeoutMs: 90000, retries: 2 });
+      } catch {
+        batchIds.forEach(id => STATE.explicitShareCache.set(id, false));
+        continue;
+      }
+
+      const perms = data.metadata_permissions || [];
+      const seenInResponse = new Set();
+
+      perms.forEach(perm => {
+        const ansId = perm.metadata?.identifier || perm.metadata_id;
+        if (!ansId) return;
+        seenInResponse.add(ansId);
+
+        const pps = perm.principal_permissions || [];
+        let hasNonOwnerShare = false;
+
+        for (const pp of pps) {
+          if (!pp) continue;
+          if (pp.is_owner === true) continue;
+          const pt = (pp.principal?.type || '').toUpperCase();
+          if (pt === 'USER' || pt === 'USER_GROUP') { hasNonOwnerShare = true; break; }
+        }
+
+        STATE.explicitShareCache.set(ansId, hasNonOwnerShare);
+      });
+
+      batchIds.forEach(id => {
+        if (!seenInResponse.has(id)) STATE.explicitShareCache.set(id, false);
+      });
+    }
+  }
+
+  // ---------- UI ----------
+  function createCategorySection(title, icon, items, host, metadataType) {
+    const section = document.createElement('div');
+    section.className = 'category-section';
+    section.innerHTML = `<div class="category-title"><span>${icon}</span> ${title} (${items.length})</div>`;
+
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = `No ${title.toLowerCase()} found`;
+      section.appendChild(empty);
+      return section;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'items-grid';
+
+    items.forEach(item => {
+      const id = item.id || item.identifier;
+      const name = item.name || 'Untitled';
+      const desc = item.description || '—';
+
+      const link = document.createElement('a');
+      link.className = 'item-card-link';
+      link.href = id ? constructThoughtSpotUrl(host, metadataType, id) : '#';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.innerHTML = `
+        <div class="item-title">${name}</div>
+        <div class="item-meta">
+          <div><strong>ID:</strong> <span class="mono">${id || '—'}</span></div>
+          <div><strong>Info:</strong> ${desc}</div>
+        </div>`;
+      link.appendChild(card);
+      grid.appendChild(link);
+    });
+
+    section.appendChild(grid);
+    return section;
+  }
+
+  function answerBadgesForGroup(answerId) {
+    const explicitlyShared = answerId ? (STATE.explicitShareCache.get(answerId) === true) : false;
+    return explicitlyShared
+      ? `<span class="pill pill-green">Explicit share</span>`
+      : `<span class="pill pill-blue">Effective access</span>`;
+  }
+
+  function createAnswerCard(answer, host, sharedIds, sharePillOverrideHTML = '') {
+    const id = answer.id || answer.identifier;
+    const name = answer.name || 'Untitled';
+    const hdr = answer.metadata_header || {};
+    const author = hdr.authorDisplayName || hdr.authorName || hdr.author || 'Unknown';
+    const created = fmtDate(hdr.created);
+    const modified = fmtDate(hdr.modified);
+
+    const explicitlyShared = id && sharedIds && sharedIds.has(id);
+    const sharePill = sharePillOverrideHTML || (sharedIds
+      ? (explicitlyShared
+          ? `<span class="pill pill-green">Explicitly shared</span>`
+          : `<span class="pill pill-gray">Unshared (owner-only)</span>`)
+      : '');
+
+    const discPill = (hdr.hasLenientDiscoverability === true)
+      ? `<span class="pill pill-amber">Discoverable</span>`
+      : `<span class="pill pill-red">Not discoverable</span>`;
+
+    const url = id ? constructThoughtSpotUrl(host, 'ANSWER', id) : '#';
+
+    const a = document.createElement('a');
+    a.className = 'item-card-link';
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.innerHTML = `
+      <div class="item-title">${name} ${sharePill} ${discPill}</div>
+      <div class="item-meta">
+        <div><strong>Author:</strong> ${author}</div>
+        <div><strong>Created:</strong> ${created}</div>
+        <div><strong>Modified:</strong> ${modified}</div>
+        <div><strong>ID:</strong> <span class="mono">${id || '—'}</span></div>
+      </div>
+    `;
+    a.appendChild(card);
+    return a;
+  }
+
+  function createLiveboardCard(lb, host, sharedIds) {
+    const id = lb.id || lb.identifier;
+    const name = lb.name || 'Untitled';
+    const hdr = lb.metadata_header || {};
+    const modified = fmtDate(hdr.modified);
+
+    const explicitlyShared = id && sharedIds && sharedIds.has(id);
+    const sharePill = explicitlyShared
+      ? `<span class="pill pill-green">Explicitly shared</span>`
+      : `<span class="pill pill-gray">Unshared (owner-only)</span>`;
+
+    const url = id ? constructThoughtSpotUrl(host, 'LIVEBOARD', id) : '#';
+
+    const a = document.createElement('a');
+    a.className = 'item-card-link';
+    a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.innerHTML = `
+      <div class="item-title">${name} ${sharePill}</div>
+      <div class="item-meta">
+        <div><strong>Modified:</strong> ${modified}</div>
+        <div><strong>ID:</strong> <span class="mono">${id || '—'}</span></div>
+      </div>
+    `;
+    a.appendChild(card);
+    return a;
+  }
+
+  function createOrgWideLiveboardsPanel(liveboards, sharedIds, host) {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+
+    panel.innerHTML = `
+      <h2>Org-wide Liveboards (saved)</h2>
+      <p>
+        Includes all Liveboards returned by <code>/metadata/search</code>.
+        “Unshared” means no explicit (DEFINED) share beyond the owner.
+      </p>
+    `;
+
+    const shared = [];
+    const unshared = [];
+
+    liveboards.forEach(lb => {
+      const id = lb.id || lb.identifier;
+      if (id && sharedIds.has(id)) shared.push(lb);
+      else unshared.push(lb);
+    });
+
+    const sharedSection = document.createElement('div');
+    sharedSection.className = 'category-section';
+    sharedSection.innerHTML = `<div class="category-title"><span>✅</span> Explicitly Shared Liveboards (${shared.length})</div>`;
+    if (!shared.length) {
+      sharedSection.innerHTML += `<div class="empty-state">No explicitly shared liveboards found in this scope.</div>`;
+    } else {
+      const grid = document.createElement('div');
+      grid.className = 'items-grid';
+      shared.sort((a,b)=>(b.metadata_header?.modified||0)-(a.metadata_header?.modified||0));
+      shared.forEach(lb => grid.appendChild(createLiveboardCard(lb, host, sharedIds)));
+      sharedSection.appendChild(grid);
+    }
+
+    const unsharedSection = document.createElement('div');
+    unsharedSection.className = 'category-section';
+    unsharedSection.innerHTML = `<div class="category-title"><span>🔒</span> Unshared (Owner-only) Liveboards (${unshared.length})</div>`;
+    if (!unshared.length) {
+      unsharedSection.innerHTML += `<div class="empty-state">No unshared liveboards found in this scope.</div>`;
+    } else {
+      const grid = document.createElement('div');
+      grid.className = 'items-grid';
+      unshared.sort((a,b)=>(b.metadata_header?.modified||0)-(a.metadata_header?.modified||0));
+      unshared.forEach(lb => grid.appendChild(createLiveboardCard(lb, host, sharedIds)));
+      unsharedSection.appendChild(grid);
+    }
+
+    panel.appendChild(sharedSection);
+    panel.appendChild(unsharedSection);
+    return panel;
+  }
+
+  function createOrgWideAnswersPanel(answers, sharedIds, host) {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+
+    panel.innerHTML = `
+      <h2>Org-wide Answers (saved)</h2>
+      <p>
+        Includes all saved Answers returned by <code>/metadata/search</code>.
+        “Unshared” means the Answer has no explicit (DEFINED) share to any user/group (owner-only).
+        Discoverability is from <code>metadata_header.hasLenientDiscoverability</code>.
+      </p>
+    `;
+
+    const shared = [];
+    const unshared = [];
+
+    answers.forEach(a => {
+      const id = a.id || a.identifier;
+      if (id && sharedIds.has(id)) shared.push(a);
+      else unshared.push(a);
+    });
+
+    const sharedSection = document.createElement('div');
+    sharedSection.className = 'category-section';
+    sharedSection.innerHTML = `<div class="category-title"><span>✅</span> Explicitly Shared Answers (${shared.length})</div>`;
+    if (!shared.length) {
+      sharedSection.innerHTML += `<div class="empty-state">No explicitly shared Answers found in this scope.</div>`;
+    } else {
+      const grid = document.createElement('div');
+      grid.className = 'items-grid';
+      shared.sort((a,b)=>(b.metadata_header?.modified||0)-(a.metadata_header?.modified||0));
+      shared.forEach(a => grid.appendChild(createAnswerCard(a, host, sharedIds)));
+      sharedSection.appendChild(grid);
+    }
+
+    const unsharedSection = document.createElement('div');
+    unsharedSection.className = 'category-section';
+    unsharedSection.innerHTML = `<div class="category-title"><span>🔒</span> Unshared (Owner-only) Answers (${unshared.length})</div>`;
+    if (!unshared.length) {
+      unsharedSection.innerHTML += `<div class="empty-state">No unshared Answers found in this scope.</div>`;
+    } else {
+      const grid = document.createElement('div');
+      grid.className = 'items-grid';
+      unshared.sort((a,b)=>(b.metadata_header?.modified||0)-(a.metadata_header?.modified||0));
+      unshared.forEach(a => grid.appendChild(createAnswerCard(a, host, sharedIds)));
+      unsharedSection.appendChild(grid);
+    }
+
+    panel.appendChild(sharedSection);
+    panel.appendChild(unsharedSection);
+    return panel;
+  }
+
+  function createGroupAnswersSectionWithShareBadges(answers, host) {
+    const section = document.createElement('div');
+    section.className = 'category-section';
+    section.innerHTML = `<div class="category-title"><span>💡</span> Answers (${answers.length})</div>`;
+
+    if (!answers.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'No answers found';
+      section.appendChild(empty);
+      return section;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'items-grid';
+
+    answers.forEach(a => {
+      const id = a.id || a.identifier;
+      const sharePillHTML = answerBadgesForGroup(id);
+      grid.appendChild(createAnswerCard(a, host, null, sharePillHTML));
+    });
+
+    section.appendChild(grid);
+    return section;
+  }
+
+  function createGroupSection(group, status, metadata, errorMsg) {
+    const section = document.createElement('div');
+    section.className = 'group-section collapsed';
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+
+    const headerContent = document.createElement('div');
+    headerContent.className = 'group-header-content';
+
+    const icon = document.createElement('span');
+    icon.className = 'group-toggle-icon';
+    icon.textContent = '▼';
+
+    const title = document.createElement('div');
+    title.className = 'group-name';
+    title.textContent = group.name || group.display_name || 'Unnamed Group';
+
+    headerContent.appendChild(icon);
+    headerContent.appendChild(title);
+
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'group-status';
+
+    if (status === 'loading') statusDiv.textContent = 'Loading...';
+    else if (status === 'error') statusDiv.textContent = 'Error';
+    else {
+      const total = (metadata?.liveboards?.length||0) + (metadata?.answers?.length||0) + (metadata?.models?.length||0);
+      statusDiv.innerHTML = `<span class="pill pill-gray">${total} items</span>`;
+    }
+
+    header.appendChild(headerContent);
+    header.appendChild(statusDiv);
+    header.addEventListener('click', ()=> section.classList.toggle('collapsed'));
+
+    const content = document.createElement('div');
+    content.className = 'group-content';
+
+    if (status === 'loading') {
+      content.innerHTML = `<div class="loading"><div class="loading-spinner"></div><div>Fetching group data...</div></div>`;
+    } else if (status === 'error') {
+      content.innerHTML = `<div class="error"><strong>Error:</strong> ${errorMsg || 'Failed to fetch group data'}</div>`;
+    } else {
+      const info = document.createElement('div');
+      info.className = 'info-section';
+      info.innerHTML = `<h3>Group Information</h3>`;
+
+      if (group.description) info.innerHTML += `<div class="info-item"><strong>Description:</strong> ${group.description}</div>`;
+
+      if (group.users && group.users.length) {
+        const usersDiv = document.createElement('div');
+        usersDiv.className = 'info-item';
+        usersDiv.innerHTML = `<strong>Users (${group.users.length}):</strong>`;
+        const list = document.createElement('div');
+        list.className = 'users-list';
+        group.users.forEach(u => {
+          const b = document.createElement('span');
+          b.className = 'user-badge';
+          b.textContent = u.name || u.id;
+          list.appendChild(b);
+        });
+        usersDiv.appendChild(list);
+        info.appendChild(usersDiv);
+      } else {
+        info.innerHTML += `<div class="info-item"><strong>Users:</strong> No users in this group</div>`;
+      }
+
+      content.appendChild(info);
+
+      const host = CONFIG.thoughtSpotHost;
+      content.appendChild(createCategorySection('LiveBoards', '📊', metadata.liveboards||[], host, 'LIVEBOARD'));
+      content.appendChild(createGroupAnswersSectionWithShareBadges(metadata.answers || [], host));
+      content.appendChild(createCategorySection('Models', '📋', metadata.models||[], host, 'LOGICAL_TABLE'));
+    }
+
+    section.appendChild(header);
+    section.appendChild(content);
+    return section;
+  }
+
+  // ---------- Main runner ----------
+  async function fetchEverything() {
+    const host = document.getElementById('thoughtspot-host').value.trim();
+    const adminUsername = document.getElementById('admin-username').value.trim();
+    const adminPassword = document.getElementById('admin-password').value.trim();
+    const orgId = getSelectedOrgId();
+
+    if (!host || !adminUsername || !adminPassword) {
+      alert('Please fill in ThoughtSpot Host, Admin Username, and Admin Password');
+      return;
+    }
+
+    CONFIG.thoughtSpotHost = host;
+    CONFIG.adminUsername = adminUsername;
+    CONFIG.adminPassword = adminPassword;
+
+    const results = document.getElementById('results-section');
+    results.style.display = 'block';
+    results.innerHTML = `<div class="loading"><div class="loading-spinner"></div><div>Running report...</div></div>`;
+
+    const btn = document.getElementById('fetch-button');
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+
+    try {
+      // Bootstrap token (no org_id) to probe org support
+      const bootstrapToken = await getAuthToken(adminUsername, adminPassword, host, '');
+      CAP.orgsSupported = await detectOrgsSupport(bootstrapToken, host);
+      setOrgUiEnabled(CAP.orgsSupported);
+
+      // If orgs supported and not loaded yet, load them best-effort
+      if (CAP.orgsSupported && (!CONFIG.orgs || CONFIG.orgs.length === 0)) {
+        try {
+          const result = await fetchOrgsList(bootstrapToken, host);
+
+          if (result.orgsSupported === false) {
+            CAP.orgsSupported = false;
+            setOrgUiEnabled(false);
+          } else {
+            CAP.orgsSupported = true;
+            setOrgUiEnabled(true);
+            CONFIG.orgs = result.orgs;
+            populateOrgSelect(result.orgs);
+            document.getElementById('orgs-status').textContent = `Loaded ${result.orgs.length} org(s).`;
+          }
+        } catch {}
+      }
+
+      // Real token: include org_id only when supported
+      const token = CAP.orgsSupported
+        ? await getAuthToken(adminUsername, adminPassword, host, orgId)
+        : await getAuthToken(adminUsername, adminPassword, host, '');
+
+      STATE.token = token;
+
+      // Org-wide: pull ALL liveboards + answers + models (paged + light), then compute explicit shares
+      const [allLiveboards, allAnswers, allModels] = await Promise.all([
+        fetchAllLiveboards(token, host),
+        fetchAllAnswers(token, host),
+        fetchAllModels(token, host)
+      ]);
+
+      const scopedLiveboards = CAP.orgsSupported ? scopeToOrg(allLiveboards, orgId) : allLiveboards;
+      const scopedAnswers    = CAP.orgsSupported ? scopeToOrg(allAnswers, orgId)    : allAnswers;
+      const scopedModels     = CAP.orgsSupported ? scopeToOrg(allModels, orgId)     : allModels;
+
+      STATE.allLiveboards = scopedLiveboards;
+      STATE.allAnswers = scopedAnswers;
+      STATE.allModels = scopedModels;
+
+      // Fill share cache + sets (org-wide)
+      STATE.sharedLiveboardIds = await fetchExplicitSharedIdsForType(token, host, scopedLiveboards, 'LIVEBOARD');
+      STATE.sharedAnswerIds = await fetchExplicitSharedIdsForType(token, host, scopedAnswers, 'ANSWER');
+
+      // Groups (org-scoped only if supported)
+      const groups = await fetchGroupsList(token, host, CAP.orgsSupported ? orgId : '');
+
+      // Render groups first
+      results.innerHTML = '';
+
+      // KPIs at the top
+      results.appendChild(createKpiBar({
+        totalLiveboards: scopedLiveboards.length,
+        totalAnswers: scopedAnswers.length,
+        totalModels: scopedModels.length
+      }));
+
+      if (!groups.length) {
+        results.appendChild(Object.assign(document.createElement('div'), {
+          className:'empty-state',
+          textContent:'No groups found in this cluster context.'
+        }));
+      } else {
+        for (const group of groups) {
+          if (group.system_group) continue;
+
+          const loadingSection = createGroupSection(group, 'loading', null, null);
+          results.appendChild(loadingSection);
+
+          try {
+            const groupIdentifier = group.id || group.name || group.display_name;
+            const md = await fetchGroupMetadata(groupIdentifier, token, host);
+            const organized = organizeMetadata(md);
+
+            // Ensure explicit-share badges work for answers in group sections (uses cache)
+            const answerIds = (organized.answers || []).map(a => a.id || a.identifier).filter(Boolean);
+            await ensureExplicitShareStatus(token, host, answerIds);
+
+            loadingSection.remove();
+            results.appendChild(createGroupSection(group, 'success', organized, null));
+          } catch (e) {
+            loadingSection.remove();
+            results.appendChild(createGroupSection(group, 'error', null, e.message));
+          }
+        }
+      }
+
+      // Put Org-wide panels UNDER the groups sections
+      results.appendChild(createOrgWideLiveboardsPanel(scopedLiveboards, STATE.sharedLiveboardIds, host));
+      results.appendChild(createOrgWideAnswersPanel(scopedAnswers, STATE.sharedAnswerIds, host));
+
+    } catch (e) {
+      results.innerHTML = `<div class="error"><strong>Error:</strong> ${e.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Run Report';
+    }
+  }
+
+  function clearResults() {
+    const results = document.getElementById('results-section');
+    results.style.display = 'none';
+    results.innerHTML = '';
+  }
+</script>
+</body>
+</html>
